@@ -9,7 +9,16 @@ export async function GET() {
     const user = await getAuthUser();
 
     if (!user) {
+      console.log(" Auth failed: No user found in token");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!user.orgName) {
+      console.log(" Data Isolation Error: User has no orgName", user);
+      return NextResponse.json(
+        { error: "Organization not found for user" },
+        { status: 400 },
+      );
     }
 
     const projects = await Project.find({ orgName: user.orgName })
@@ -18,8 +27,9 @@ export async function GET() {
 
     return NextResponse.json(projects);
   } catch (error) {
+    console.error(" GET PROJECTS ERROR:", error);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: error.message || "Internal Server Error" },
       { status: 500 },
     );
   }
@@ -50,14 +60,14 @@ export async function POST(req) {
       priority: priority || "Medium",
       deadline,
       orgName: user.orgName,
-      owner: user.id,
+      owner: user.id || user._id,
     });
 
     return NextResponse.json(newProject, { status: 201 });
   } catch (error) {
-    console.error("Project Create Error:", error);
+    console.error(" PROJECT CREATE ERROR:", error);
     return NextResponse.json(
-      { error: "Failed to create project" },
+      { error: error.message || "Failed to create project" },
       { status: 500 },
     );
   }

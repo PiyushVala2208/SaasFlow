@@ -3,10 +3,36 @@ import connectDB from "@/lib/mongodb";
 import Project from "@/models/Project";
 import { getAuthUser } from "@/lib/auth";
 
+export async function GET(req, { params }) {
+  try {
+    await connectDB();
+    const { id } = await params;
+    const user = await getAuthUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const project = await Project.findOne({
+      _id: id,
+      orgName: user.orgName,
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(project);
+  } catch (error) {
+    console.error("GET Error:", error);
+    return NextResponse.json({ error: "Fetch failed" }, { status: 500 });
+  }
+}
+
 export async function PATCH(req, { params }) {
   try {
     await connectDB();
-    const { id } = await params();
+    const { id } = await params;
     const user = await getAuthUser();
     const body = await req.json();
 
@@ -36,7 +62,7 @@ export async function PATCH(req, { params }) {
 export async function DELETE(req, { params }) {
   try {
     await connectDB();
-    const { id } = params;
+    const { id } = await params;
     const user = await getAuthUser();
 
     if (!user) {
