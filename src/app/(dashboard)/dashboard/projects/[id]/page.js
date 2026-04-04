@@ -2,16 +2,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
-import {
-  Loader2,
-  Plus,
-  LayoutGrid,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  ArrowLeft,
-} from "lucide-react";
+import { Loader2, Plus, LayoutGrid, Clock, ArrowLeft } from "lucide-react";
 import Button from "@/components/ui/Button";
+import AddTaskModal from "@/components/shared/AddTaskModal";
 
 export default function ProjectDetailsPage() {
   const { id } = useParams();
@@ -19,6 +12,8 @@ export default function ProjectDetailsPage() {
   const [tasks, setTasks] = useState([]);
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchProjectData = useCallback(async () => {
     try {
@@ -60,7 +55,6 @@ export default function ProjectDetailsPage() {
 
   return (
     <div className="space-y-8">
-      {/* Back Button Section */}
       <button
         onClick={() => router.back()}
         className="flex items-center gap-2  hover:text-white transition-colors text-sm font-medium group text-blue-500"
@@ -85,7 +79,10 @@ export default function ProjectDetailsPage() {
             {project?.description}
           </p>
         </div>
-        <Button className="flex items-center gap-2">
+        <Button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2"
+        >
           <Plus size={18} /> Add Task
         </Button>
       </div>
@@ -107,6 +104,13 @@ export default function ProjectDetailsPage() {
           color="bg-emerald-500"
         />
       </div>
+
+      <AddTaskModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        projectId={id}
+        onSuccess={fetchProjectData}
+      />
     </div>
   );
 }
