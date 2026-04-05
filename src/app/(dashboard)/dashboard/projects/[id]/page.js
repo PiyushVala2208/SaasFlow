@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import GlassCard from "@/components/ui/GlassCard";
-import { Loader2, Plus, LayoutGrid, Clock, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, LayoutGrid, ArrowLeft, History, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import AddTaskModal from "@/components/shared/AddTaskModal";
+import KanbanColumn from "@/components/shared/KanbanColumn";
+import ActivityFeed from "@/components/projects/ActivityFeed";
 
 export default function ProjectDetailsPage() {
   const { id } = useParams();
@@ -12,31 +13,23 @@ export default function ProjectDetailsPage() {
   const [tasks, setTasks] = useState([]);
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isActivityOpen, setIsActivityOpen] = useState(false); // Custom Drawer State
+  const [activityKey, setActivityKey] = useState(0);
 
   const fetchProjectData = useCallback(async () => {
     try {
       setLoading(true);
-
       const projectRes = await fetch(`/api/projects/${id}`);
       if (projectRes.ok) {
         const projectData = await projectRes.json();
         setProject(projectData);
       }
-
       const tasksRes = await fetch(`/api/tasks?projectId=${id}`);
       const tasksData = await tasksRes.json();
-
-      if (Array.isArray(tasksData)) {
-        setTasks(tasksData);
-      } else {
-        console.error("API didn't return an array:", tasksData);
-        setTasks([]);
-      }
+      setTasks(Array.isArray(tasksData) ? tasksData : []);
     } catch (err) {
-      console.error("Error fetching data:", err);
-      setTasks([]);
+      console.error("Fetch error:", err);
     } finally {
       setLoading(false);
     }
@@ -46,6 +39,39 @@ export default function ProjectDetailsPage() {
     fetchProjectData();
   }, [fetchProjectData]);
 
+  const triggerActivityRefresh = () => setActivityKey((prev) => prev + 1);
+
+  const handleUpdateStatus = async (taskId, newStatus) => {
+    const originalTasks = [...tasks];
+    setTasks((prev) =>
+      prev.map((t) => (t._id === taskId ? { ...t, status: newStatus } : t)),
+    );
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) setTasks(originalTasks);
+      else triggerActivityRefresh();
+    } catch (err) {
+      setTasks(originalTasks);
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!confirm("Delete this task?")) return;
+    const originalTasks = [...tasks];
+    setTasks((prev) => prev.filter((t) => t._id !== taskId));
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (!res.ok) setTasks(originalTasks);
+      else triggerActivityRefresh();
+    } catch (err) {
+      setTasks(originalTasks);
+    }
+  };
+
   if (loading)
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -54,117 +80,122 @@ export default function ProjectDetailsPage() {
     );
 
   return (
-    <div className="space-y-8">
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-2  hover:text-white transition-colors text-sm font-medium group text-blue-500"
-      >
-        <ArrowLeft
-          size={16}
-          className="group-hover:-translate-x-1 transition-transform text-blue-600"
-        />
-        Back to Projects
-      </button>
-
-      <div className="flex justify-between items-end">
-        <div>
-          <div className="flex items-center gap-2 text-neutral-500 mb-2">
-            <LayoutGrid size={16} />
-            <span className="text-xs font-bold uppercase tracking-widest">
-              Project Overview
-            </span>
+    <div className="relative min-h-screen overflow-x-hidden">
+      <div className="space-y-8 pb-10">
+        <div className="flex justify-between items-start">
+          <div className="space-y-4">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-2 text-blue-500 text-sm font-medium hover:text-white transition-colors"
+            >
+              <ArrowLeft size={16} /> Back
+            </button>
+            <h1 className="text-4xl font-bold tracking-tight">
+              {project?.name}
+            </h1>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight">{project?.name}</h1>
-          <p className="text-neutral-500 mt-2 max-w-2xl">
-            {project?.description}
-          </p>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsActivityOpen(true)}
+              className="group relative flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-accent/40 transition-all duration-300 active:scale-95 overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-accent/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <History
+                size={18}
+                className="text-neutral-400 group-hover:text-accent transition-colors"
+              />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 group-hover:text-white relative z-10">
+                Pulse
+              </span>
+            </button>
+
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus size={18} /> Add Task
+            </Button>
+          </div>
         </div>
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2"
-        >
-          <Plus size={18} /> Add Task
-        </Button>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <KanbanColumn
+            title="To-Do"
+            tasks={tasks.filter((t) => t.status === "To-Do")}
+            color="bg-neutral-500"
+            onUpdate={handleUpdateStatus}
+            onDelete={handleDeleteTask}
+          />
+          <KanbanColumn
+            title="In-Progress"
+            tasks={tasks.filter((t) => t.status === "In-Progress")}
+            color="bg-blue-500"
+            onUpdate={handleUpdateStatus}
+            onDelete={handleDeleteTask}
+          />
+          <KanbanColumn
+            title="Completed"
+            tasks={tasks.filter((t) => t.status === "Done")}
+            color="bg-emerald-500"
+            onUpdate={handleUpdateStatus}
+            onDelete={handleDeleteTask}
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <KanbanColumn
-          title="To-Do"
-          tasks={tasks.filter((t) => t.status === "To-Do")}
-          color="bg-neutral-500"
-        />
-        <KanbanColumn
-          title="In-Progress"
-          tasks={tasks.filter((t) => t.status === "In-Progress")}
-          color="bg-blue-500"
-        />
-        <KanbanColumn
-          title="Completed"
-          tasks={tasks.filter((t) => t.status === "Done")}
-          color="bg-emerald-500"
-        />
-      </div>
+      <div
+        className={`fixed inset-0 bg-black/80  z-100 transition-opacity duration-500 ${
+          isActivityOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }`}
+        onClick={() => setIsActivityOpen(false)}
+      />
+
+      <aside
+        className={`fixed top-0 right-0 h-full w-full max-w-[380px] bg-[#080808]/90 backdrop-blur-3xl border-l border-white/10 z-[110] transform transition-transform duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] ${
+          isActivityOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="h-full flex flex-col">
+          <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
+                <History size={18} className="text-accent" />
+              </div>
+              <div>
+                <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">
+                  Project Pulse
+                </h2>
+                <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest mt-0.5">
+                  Live History
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsActivityOpen(false)}
+              className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-neutral-400 hover:text-white border border-white/5"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            <ActivityFeed key={activityKey} projectId={id} />
+          </div>
+        </div>
+      </aside>
 
       <AddTaskModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         projectId={id}
-        onSuccess={fetchProjectData}
+        onSuccess={() => {
+          fetchProjectData();
+          triggerActivityRefresh();
+        }}
       />
-    </div>
-  );
-}
-
-function KanbanColumn({ title, tasks, color }) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between px-2">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${color}`} />
-          <h2 className="font-bold text-sm uppercase tracking-wider text-neutral-400">
-            {title}
-          </h2>
-          <span className="bg-white/5 px-2 py-0.5 rounded-md text-[10px] text-neutral-500">
-            {tasks.length}
-          </span>
-        </div>
-      </div>
-
-      <div className="space-y-4 min-h-125 rounded-3xl border-2 border-dashed border-white/5 p-2">
-        {tasks.map((task) => (
-          <GlassCard
-            key={task._id}
-            className="p-4 border-white/5 hover:border-white/10 transition-all cursor-pointer group"
-          >
-            <div className="flex justify-between items-start mb-3">
-              <span
-                className={`text-[10px] px-2 py-1 rounded-lg bg-white/5 font-bold uppercase tracking-tighter ${task.priority === "Urgent" ? "text-red-400" : "text-neutral-400"}`}
-              >
-                {task.priority}
-              </span>
-            </div>
-            <h4 className="font-bold text-white group-hover:text-accent transition-colors">
-              {task.title}
-            </h4>
-            <p className="text-xs text-neutral-500 mt-1 line-clamp-2">
-              {task.description}
-            </p>
-
-            <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
-              <div className="flex items-center gap-1 text-[10px] text-neutral-600">
-                <Clock size={12} />
-                {task.deadline
-                  ? new Date(task.deadline).toLocaleDateString()
-                  : "No date"}
-              </div>
-              <img
-                src={`https://ui-avatars.com/api/?name=${task.assignedTo?.name || "U"}&background=random`}
-                className="w-5 h-5 rounded-full border border-white/10"
-              />
-            </div>
-          </GlassCard>
-        ))}
-      </div>
     </div>
   );
 }
