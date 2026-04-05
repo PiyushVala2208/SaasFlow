@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Project from "@/models/Project";
+import Task from "@/models/Task";
 import { getAuthUser } from "@/lib/auth";
 
 export async function GET() {
@@ -9,12 +10,10 @@ export async function GET() {
     const user = await getAuthUser();
 
     if (!user) {
-      console.log(" Auth failed: No user found in token");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!user.orgName) {
-      console.log(" Data Isolation Error: User has no orgName", user);
       return NextResponse.json(
         { error: "Organization not found for user" },
         { status: 400 },
@@ -23,9 +22,32 @@ export async function GET() {
 
     const projects = await Project.find({ orgName: user.orgName })
       .populate("owner", "name email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    return NextResponse.json(projects);
+    const projectsWithStats = await Promise.all(
+      projects.map(async (project) => {
+        const projectId = project._id.toString();
+
+        const totalTasks = await Task.countDocuments({ projectId });
+        const completedTasks = await Task.countDocuments({
+          projectId,
+          status: "Done",
+        });
+
+        const progress =
+          totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+        return {
+          ...project,
+          totalTasks,
+          completedTasks,
+          progress,
+        };
+      }),
+    );
+
+    return NextResponse.json(projectsWithStats);
   } catch (error) {
     console.error(" GET PROJECTS ERROR:", error);
     return NextResponse.json(
@@ -63,7 +85,14 @@ export async function POST(req) {
       owner: user.id || user._id,
     });
 
-    return NextResponse.json(newProject, { status: 201 });
+    const responseData = {
+      ...newProject._doc,
+      totalTasks: 0,
+      completedTasks: 0,
+      progress: 0,
+    };
+
+    return NextResponse.json(responseData, { status: 201 });
   } catch (error) {
     console.error(" PROJECT CREATE ERROR:", error);
     return NextResponse.json(

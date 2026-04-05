@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Task from "@/models/Task";
 import { getAuthUser } from "@/lib/auth";
+import { logActivity } from "@/lib/activityLogger";
 
 export async function GET(req) {
   try {
@@ -24,10 +25,12 @@ export async function GET(req) {
       projectId: projectId,
     })
       .populate("assignedTo", "name email image")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     return NextResponse.json(tasks);
   } catch (error) {
+    console.error("FETCH_TASKS_ERROR:", error);
     return NextResponse.json({ error: "Fetch failed" }, { status: 500 });
   }
 }
@@ -41,7 +44,15 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { title, description, priority, deadline, projectId, assignedTo } = body;
+    const { title, description, priority, deadline, projectId, assignedTo } =
+      body;
+
+    if (!title || !projectId) {
+      return NextResponse.json(
+        { error: "Missing required fields: Title or ProjectId" },
+        { status: 400 },
+      );
+    }
 
     const newTask = await Task.create({
       title,
@@ -49,13 +60,27 @@ export async function POST(req) {
       priority: priority || "Medium",
       deadline,
       projectId,
-      assignedTo,
+      assignedTo: assignedTo || null,
       orgName: user.orgName,
-      createdBy: user.id,
+      createdBy: user.id || user._id,
     });
 
-    return NextResponse.json(newTask, { status: 201 })
+    logActivity({
+      projectId,
+      userId: user.id || user._id,
+      orgName: user.orgName,
+      action: "CREATE_TASK",
+      details: {
+        taskTitle: title,
+      },
+    });
+
+    return NextResponse.json(newTask, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: "Creation failed" }, { status: 500 });
+    console.error("CREATE_TASK_ERROR:", error);
+    return NextResponse.json(
+      { error: error.message || "Creation failed" },
+      { status: 500 },
+    );
   }
 }
