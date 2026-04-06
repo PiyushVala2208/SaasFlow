@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react"; 
 import {
   X,
   Calendar,
@@ -19,6 +19,7 @@ export default function AddTaskModal({
   onSuccess,
 }) {
   const [loading, setLoading] = useState(false);
+  const [members, setMembers] = useState([]); 
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -26,6 +27,24 @@ export default function AddTaskModal({
     dueDate: "",
     assignedTo: "",
   });
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch("/api/user");
+        const data = await res.json();
+        if (data.allUsers) {
+          setMembers(data.allUsers);
+        }
+      } catch (err) {
+        console.error("Failed to fetch members", err);
+      }
+    };
+
+    if (isOpen) {
+      fetchUsers();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -48,6 +67,7 @@ export default function AddTaskModal({
           description: "",
           priority: "Medium",
           dueDate: "",
+          assignedTo: "",
         });
         onSuccess();
         onClose();
@@ -144,7 +164,7 @@ export default function AddTaskModal({
               </label>
               <input
                 type="date"
-                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white outline-none focus:border-accent/50 transition-all scheme-dark"
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white outline-none focus:border-accent/50 transition-all [color-scheme:dark]"
                 value={formData.dueDate}
                 onChange={(e) =>
                   setFormData({ ...formData, dueDate: e.target.value })
@@ -153,23 +173,32 @@ export default function AddTaskModal({
             </div>
           </div>
 
-           <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
-                <User size={12} /> Assign To
-              </label>
-              <select
-                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white outline-none focus:border-accent/50 transition-all appearance-none cursor-pointer"
-                value={formData.assignedTo}
-                onChange={(e) =>
-                  setFormData({ ...formData, assignedTo: e.target.value })
-                }
-              >
-                <option value="" className="bg-neutral-900">
-                  Select Member
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+              <User size={12} /> Assign To
+            </label>
+            <select
+              required
+              className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white outline-none focus:border-accent/50 transition-all appearance-none cursor-pointer"
+              value={formData.assignedTo}
+              onChange={(e) =>
+                setFormData({ ...formData, assignedTo: e.target.value })
+              }
+            >
+              <option value="" className="bg-neutral-900">
+                Select Member
+              </option>
+              {members.map((member) => (
+                <option
+                  key={member._id}
+                  value={member._id}
+                  className="bg-neutral-900"
+                >
+                  {member.name} ({member.email})
                 </option>
-                {/* members.map hook se aayenge yahan */}
-              </select>
-            </div>
+              ))}
+            </select>
+          </div>
 
           <Button
             disabled={loading}

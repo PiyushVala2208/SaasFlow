@@ -32,8 +32,20 @@ const ProjectSchema = new mongoose.Schema(
     },
     members: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        role: {
+          type: String,
+          enum: ["Owner", "Admin", "Editor", "Viewer"],
+          default: "Editor",
+        },
+        joinedAt: {
+          type: Date,
+          default: Date.now,
+        },
       },
     ],
     deadline: {
@@ -46,8 +58,15 @@ const ProjectSchema = new mongoose.Schema(
       max: 100,
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
 );
+
+ProjectSchema.index({ owner: 1, orgName: 1 });
+ProjectSchema.index({ "members.user": 1 });
 
 export default mongoose.models.Project ||
   mongoose.model("Project", ProjectSchema);
