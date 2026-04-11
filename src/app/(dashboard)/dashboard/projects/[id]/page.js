@@ -1,21 +1,37 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2, Plus, LayoutGrid, ArrowLeft, History, X } from "lucide-react";
+import {
+  Loader2,
+  Plus,
+  LayoutGrid,
+  ArrowLeft,
+  History,
+  X,
+  UserPlus,
+} from "lucide-react";
 import Button from "@/components/ui/Button";
 import AddTaskModal from "@/components/shared/AddTaskModal";
 import KanbanColumn from "@/components/shared/KanbanColumn";
 import ActivityFeed from "@/components/projects/ActivityFeed";
+import StatsGrid from "@/components/projects/StatsGrid";
+import InviteModal from "@/components/projects/InviteModal";
+import TaskDetailModal from "@/components/tasks/TaskDetailModal"; // Already imported!
 
 export default function ProjectDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
-  const [tasks, setTasks] = useState([]);
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isActivityOpen, setIsActivityOpen] = useState(false); // Custom Drawer State
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isActivityOpen, setIsActivityOpen] = useState(false);
   const [activityKey, setActivityKey] = useState(0);
+  const [statsKey, setStatsKey] = useState(0);
+
+  const [tasks, setTasks] = useState([]);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const fetchProjectData = useCallback(async () => {
     try {
@@ -39,7 +55,10 @@ export default function ProjectDetailsPage() {
     fetchProjectData();
   }, [fetchProjectData]);
 
-  const triggerActivityRefresh = () => setActivityKey((prev) => prev + 1);
+  const triggerActivityRefresh = () => {
+    setActivityKey((prev) => prev + 1);
+    setStatsKey((prev) => prev + 1);
+  };
 
   const handleUpdateStatus = async (taskId, newStatus) => {
     const originalTasks = [...tasks];
@@ -56,6 +75,25 @@ export default function ProjectDetailsPage() {
       else triggerActivityRefresh();
     } catch (err) {
       setTasks(originalTasks);
+    }
+  };
+
+  // --- NEW: Handle Full Task Updates from Detail Modal ---
+  const handleUpdateTaskDetails = async (taskId, updatedData) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedData),
+      });
+      if (res.ok) {
+        const newTask = await res.json();
+        setTasks((prev) => prev.map((t) => (t._id === taskId ? newTask : t)));
+        setSelectedTask(newTask);
+        triggerActivityRefresh();
+      }
+    } catch (err) {
+      console.error("Failed to update task:", err);
     }
   };
 
@@ -97,6 +135,16 @@ export default function ProjectDetailsPage() {
 
           <div className="flex items-center gap-3">
             <button
+              onClick={() => setIsInviteOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/5 hover:border-white/20 transition-all active:scale-95"
+            >
+              <UserPlus size={16} className="text-neutral-400" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                Invite
+              </span>
+            </button>
+
+            <button
               onClick={() => setIsActivityOpen(true)}
               className="group relative flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-accent/40 transition-all duration-300 active:scale-95 overflow-hidden"
             >
@@ -119,13 +167,20 @@ export default function ProjectDetailsPage() {
           </div>
         </div>
 
+        <StatsGrid projectId={id} refreshKey={statsKey} />
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Har Column mein humne onClick add kiya hai taaki selected task set ho sake */}
           <KanbanColumn
             title="To-Do"
             tasks={tasks.filter((t) => t.status === "To-Do")}
             color="bg-neutral-500"
             onUpdate={handleUpdateStatus}
             onDelete={handleDeleteTask}
+            onTaskClick={(task) => {
+              setSelectedTask(task);
+              setIsDetailOpen(true);
+            }}
           />
           <KanbanColumn
             title="In-Progress"
@@ -133,6 +188,10 @@ export default function ProjectDetailsPage() {
             color="bg-blue-500"
             onUpdate={handleUpdateStatus}
             onDelete={handleDeleteTask}
+            onTaskClick={(task) => {
+              setSelectedTask(task);
+              setIsDetailOpen(true);
+            }}
           />
           <KanbanColumn
             title="Completed"
@@ -140,12 +199,23 @@ export default function ProjectDetailsPage() {
             color="bg-emerald-500"
             onUpdate={handleUpdateStatus}
             onDelete={handleDeleteTask}
+            onTaskClick={(task) => {
+              setSelectedTask(task);
+              setIsDetailOpen(true);
+            }}
           />
         </div>
       </div>
 
+      <InviteModal
+        isOpen={isInviteOpen}
+        onClose={() => setIsInviteOpen(false)}
+        projectId={id}
+        onInviteSuccess={fetchProjectData}
+      />
+
       <div
-        className={`fixed inset-0 bg-black/80  z-100 transition-opacity duration-500 ${
+        className={`fixed inset-0 bg-black/80 z-[100] transition-opacity duration-500 ${
           isActivityOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
@@ -195,6 +265,14 @@ export default function ProjectDetailsPage() {
           fetchProjectData();
           triggerActivityRefresh();
         }}
+      />
+
+      <TaskDetailModal
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        task={selectedTask}
+        onUpdate={handleUpdateTaskDetails}
+        members={project?.members || []}
       />
     </div>
   );

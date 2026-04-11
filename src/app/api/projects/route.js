@@ -3,6 +3,32 @@ import connectDB from "@/lib/mongodb";
 import Project from "@/models/Project";
 import Task from "@/models/Task";
 import { getAuthUser } from "@/lib/auth";
+import mongoose from "mongoose";
+
+function resolveMembershipRole(project, userIdStr) {
+  const ownerRef = project.owner;
+  const ownerId =
+    ownerRef && typeof ownerRef === "object" && ownerRef._id != null
+      ? String(ownerRef._id)
+      : ownerRef != null
+        ? String(ownerRef)
+        : null;
+
+  if (ownerId === userIdStr) return "Owner";
+
+  const member = (project.members || []).find((m) => {
+    const uid = m.user;
+    const idStr =
+      uid && typeof uid === "object" && uid._id != null
+        ? String(uid._id)
+        : uid != null
+          ? String(uid)
+          : null;
+    return idStr === userIdStr;
+  });
+
+  return member?.role ?? "Editor";
+}
 
 export async function GET() {
   try {
@@ -20,10 +46,40 @@ export async function GET() {
       );
     }
 
-    const projects = await Project.find({ orgName: user.orgName })
-      .populate("owner", "name email")
-      .sort({ createdAt: -1 })
-      .lean();
+    const userIdStr = String(user.id ?? user._id);
+    const userOid = new mongoose.Types.ObjectId(userIdStr);
+
+    let projects = await Project.aggregate([
+      { $match: { orgName: user.orgName } },
+      {
+        $lookup: {
+          from: "tasks",
+          localField: "_id",
+          foreignField: "projectId",
+          as: "projectTasks",
+        },
+      },
+      {
+        $match: {
+          $or: [
+            { owner: userOid },
+            { "members.user": userOid },
+            { "projectTasks.assignedTo": userOid },
+          ],
+        },
+      },
+      {
+        $project: {
+          projectTasks: 0,
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ]);
+
+    projects = await Project.populate(projects, [
+      { path: "owner", select: "name email image" },
+      { path: "members.user", select: "name email image" },
+    ]);
 
     const projectsWithStats = await Promise.all(
       projects.map(async (project) => {
@@ -36,10 +92,15 @@ export async function GET() {
         });
 
         const progress =
-          totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+          totalTasks > 0
+            ? Math.round((completedTasks / totalTasks) * 100)
+            : 0;
+
+        const membershipRole = resolveMembershipRole(project, userIdStr);
 
         return {
           ...project,
+          membershipRole,
           totalTasks,
           completedTasks,
           progress,
@@ -76,13 +137,17 @@ export async function POST(req) {
       );
     }
 
+    const ownerOid = new mongoose.Types.ObjectId(
+      String(user.id ?? user._id),
+    );
+
     const newProject = await Project.create({
       name,
       description,
       priority: priority || "Medium",
       deadline,
       orgName: user.orgName,
-      owner: user.id || user._id,
+      owner: ownerOid,
     });
 
     const responseData = {

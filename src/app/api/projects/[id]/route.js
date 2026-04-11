@@ -2,21 +2,40 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Project from "@/models/Project";
 import { getAuthUser } from "@/lib/auth";
+import mongoose from "mongoose";
+
+function projectAccessFilter(userOrgName, projectOid, userOid) {
+  return {
+    _id: projectOid,
+    orgName: userOrgName,
+    $or: [{ owner: userOid }, { "members.user": userOid }],
+  };
+}
 
 export async function GET(req, { params }) {
   try {
     await connectDB();
-    const { id } = await params;
+    const { id: rawId } = await params;
     const user = await getAuthUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const project = await Project.findOne({
-      _id: id,
-      orgName: user.orgName,
-    });
+    if (!mongoose.Types.ObjectId.isValid(rawId)) {
+      return NextResponse.json({ error: "Invalid project id" }, { status: 400 });
+    }
+
+    const projectOid = new mongoose.Types.ObjectId(rawId);
+    const userOid = new mongoose.Types.ObjectId(
+      String(user.id ?? user._id),
+    );
+
+    const project = await Project.findOne(
+      projectAccessFilter(user.orgName, projectOid, userOid),
+    )
+      .populate("owner", "name email image")
+      .populate("members.user", "name email image");
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -32,7 +51,7 @@ export async function GET(req, { params }) {
 export async function PATCH(req, { params }) {
   try {
     await connectDB();
-    const { id } = await params;
+    const { id: rawId } = await params;
     const user = await getAuthUser();
     const body = await req.json();
 
@@ -40,10 +59,19 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(rawId)) {
+      return NextResponse.json({ error: "Invalid project id" }, { status: 400 });
+    }
+
+    const projectOid = new mongoose.Types.ObjectId(rawId);
+    const userOid = new mongoose.Types.ObjectId(
+      String(user.id ?? user._id),
+    );
+
     const updatedProject = await Project.findOneAndUpdate(
-      { _id: id, orgName: user.orgName },
+      projectAccessFilter(user.orgName, projectOid, userOid),
       { $set: body },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!updatedProject) {
@@ -62,21 +90,31 @@ export async function PATCH(req, { params }) {
 export async function DELETE(req, { params }) {
   try {
     await connectDB();
-    const { id } = await params;
+    const { id: rawId } = await params;
     const user = await getAuthUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(rawId)) {
+      return NextResponse.json({ error: "Invalid project id" }, { status: 400 });
+    }
+
+    const projectOid = new mongoose.Types.ObjectId(rawId);
+    const userOid = new mongoose.Types.ObjectId(
+      String(user.id ?? user._id),
+    );
+
     const deleted = await Project.findOneAndDelete({
-      _id: id,
+      _id: projectOid,
       orgName: user.orgName,
+      owner: userOid,
     });
 
     if (!deleted) {
       return NextResponse.json(
-        { error: "Unauthorized delete request" },
+        { error: "Only the project owner can delete this project" },
         { status: 403 },
       );
     }
