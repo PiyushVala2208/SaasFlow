@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react"; 
+import { useState, useEffect } from "react";
 import {
   X,
   Calendar,
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import Button from "@/components/ui/Button";
+import SubTaskManager from "../projects/SubTaskManager";
 
 export default function AddTaskModal({
   isOpen,
@@ -19,7 +20,8 @@ export default function AddTaskModal({
   onSuccess,
 }) {
   const [loading, setLoading] = useState(false);
-  const [members, setMembers] = useState([]); 
+  const [members, setMembers] = useState([]);
+  const [subTasks, setSubTasks] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -52,13 +54,17 @@ export default function AddTaskModal({
     e.preventDefault();
     setLoading(true);
     try {
+      const payload = {
+        ...formData,
+        projectId,
+        subTasks,
+        assignedTo: formData.assignedTo ? [formData.assignedTo] : [],
+      };
+
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          projectId,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -69,6 +75,7 @@ export default function AddTaskModal({
           dueDate: "",
           assignedTo: "",
         });
+        setSubTasks([]);
         onSuccess();
         onClose();
       }
@@ -80,8 +87,8 @@ export default function AddTaskModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <GlassCard className="w-full max-w-lg p-8 border-white/10 shadow-2xl animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
+      <GlassCard className="w-full max-w-lg p-8 border-white/10 shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar bg-neutral-950/90">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-white">
@@ -130,6 +137,8 @@ export default function AddTaskModal({
               }
             />
           </div>
+
+          <SubTaskManager subTasks={subTasks} setSubTasks={setSubTasks} />
 
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
