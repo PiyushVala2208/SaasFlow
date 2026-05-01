@@ -1,121 +1,222 @@
 "use client";
+import { useState, useEffect, useCallback } from "react";
 import GlassCard from "@/components/ui/GlassCard";
 import RevenueChart from "@/components/dashboard/RevenueChart";
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell 
-} from 'recharts';
-import { Download, Filter, TrendingUp, Users, Target, MousePointer2 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import {
+  Download,
+  Filter,
+  TrendingUp,
+  Users,
+  Target,
+  MousePointer2,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import CustomTooltip from "@/components/dashboard/CustomTooltip";
 
-// Dummy Data for Bar Chart
-const barData = [
-  { name: 'Mon', users: 2400 },
-  { name: 'Tue', users: 1398 },
-  { name: 'Wed', users: 9800 },
-  { name: 'Thu', users: 3908 },
-  { name: 'Fri', users: 4800 },
-  { name: 'Sat', users: 3800 },
-  { name: 'Sun', users: 4300 },
-];
-
-// Dummy Data for Pie Chart (Market Share)
-const pieData = [
-  { name: 'Enterprise', value: 400 },
-  { name: 'Startup', value: 300 },
-  { name: 'Individual', value: 300 },
-];
-const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899'];
+const COLORS = ["#3b82f6", "#8b5cf6", "#ec4899"];
 
 export default function AnalyticsPage() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState({
+    stats: [],
+    pieData: [],
+    barData: [],
+  });
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch("/api/analytics", {
+        method: "GET",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to sync intelligence engine");
+      }
+
+      const result = await response.json();
+
+      setData({
+        stats: result.stats || [],
+        pieData: result.segments || [],
+        barData: result.activity || [],
+      });
+    } catch (err) {
+      console.error("Analytics Sync Error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  if (loading) {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center space-y-6">
+        <div className="relative">
+          <div className="w-16 h-16 border-t-2 border-blue-500 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-8 h-8 bg-blue-500/20 rounded-full animate-pulse"></div>
+          </div>
+        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-neutral-500">
+          Syncing Analytics...
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center text-center">
+        <p className="text-red-500 font-bold mb-4">Error: {error}</p>
+        <button
+          onClick={fetchAnalytics}
+          className="px-6 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all"
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8 pb-10">
-      {/* Header with Actions */}
+    <div className="space-y-8 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Business Analytics</h1>
-          <p className="text-neutral-500 mt-1">Detailed performance metrics across your organization.</p>
+          <h1 className="text-3xl font-black tracking-tighter text-white">
+            INTELLIGENCE ENGINE
+          </h1>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest">
+              System Live: Data Propagated
+            </p>
+          </div>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium hover:bg-white/10 transition-all">
-            <Filter size={16} /> Filter
+          <button
+            onClick={fetchAnalytics}
+            className="p-2 rounded-xl bg-white/5 border border-white/10 text-neutral-400 hover:text-white transition-all"
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-white text-sm font-medium hover:opacity-90 transition-all">
-            <Download size={16} /> Export Reports
+          <button className="flex items-center gap-2 px-6 py-2 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-[0_0_30px_rgba(37,99,235,0.3)]">
+            <Download size={14} /> Export Report
           </button>
         </div>
       </div>
 
-      {/* Analytics Insights Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Avg. Session", val: "12m 45s", icon: MousePointer2, color: "text-blue-500" },
-          { label: "Conversion", val: "4.8%", icon: Target, color: "text-emerald-500" },
-          { label: "Bounce Rate", val: "22.4%", icon: TrendingUp, color: "text-red-500" },
-          { label: "Active Subs", val: "842", icon: Users, color: "text-purple-500" },
-        ].map((item, i) => (
-          <GlassCard key={i} className="p-5 border-white/5">
-            <div className="flex justify-between items-center mb-2">
-              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{item.label}</p>
-              <item.icon size={16} className={item.color} />
-            </div>
-            <h3 className="text-2xl font-bold">{item.val}</h3>
-          </GlassCard>
-        ))}
+        {data.stats.map((item, i) => {
+          const Icon =
+            { Target, TrendingUp, Users, MousePointer2 }[item.icon] || Target;
+          return (
+            <GlassCard
+              key={i}
+              className="p-6 border-white/5 group hover:border-blue-500/20 transition-all duration-500"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 rounded-2xl bg-neutral-900 border border-white/5 group-hover:border-blue-500/30 transition-all">
+                  <Icon size={20} className={item.color || "text-blue-500"} />
+                </div>
+                <div
+                  className={`px-2 py-1 rounded-full text-[10px] font-bold ${item.trend?.startsWith("+") ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"}`}
+                >
+                  {item.trend}
+                </div>
+              </div>
+              <p className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.2em]">
+                {item.label}
+              </p>
+              <h3 className="text-3xl font-black text-white mt-1 tracking-tighter">
+                {item.val}
+              </h3>
+            </GlassCard>
+          );
+        })}
       </div>
 
-      {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Main Revenue Chart (Taking 2 columns) */}
-        <GlassCard className="lg:col-span-2 p-6 border-white/5">
-          <h3 className="text-lg font-bold mb-6">Revenue Breakdown</h3>
-          <RevenueChart />
+        <GlassCard className="lg:col-span-2 p-8 border-white/5">
+          <div className="mb-8">
+            <h3 className="text-sm font-black uppercase tracking-[0.3em] text-white/40">
+              Revenue Trajectory
+            </h3>
+          </div>
+          <div className="h-[350px]">
+            <RevenueChart />
+          </div>
         </GlassCard>
 
-        {/* Traffic Source Pie Chart */}
-        <GlassCard className="p-6 border-white/5 flex flex-col justify-between">
-          <h3 className="text-lg font-bold mb-4">Client Segment</h3>
-          <div className="h-62.5 w-full">
+        <GlassCard className="p-8 border-white/5">
+          <h3 className="text-sm font-black uppercase tracking-[0.3em] text-white/40 mb-10">
+            Client Segment
+          </h3>
+          <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                <Pie
+                  data={data.pieData}
+                  innerRadius="75%"
+                  outerRadius="95%"
+                  paddingAngle={10}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {data.pieData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip content={<CustomTooltip />} />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="space-y-2 mt-4">
-            {pieData.map((item, i) => (
-              <div key={i} className="flex justify-between text-xs">
-                <span className="text-neutral-500 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS[i]}} /> {item.name}
+          <div className="mt-8 space-y-3">
+            {data.pieData.map((item, i) => (
+              <div
+                key={i}
+                className="flex justify-between items-center bg-white/[0.02] p-3 rounded-xl border border-white/5"
+              >
+                <span className="text-[10px] font-bold uppercase text-neutral-500 flex items-center gap-2">
+                  <div
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: COLORS[i] }}
+                  />{" "}
+                  {item.name}
                 </span>
-                <span className="font-bold text-white">{(item.value / 10).toFixed(1)}%</span>
+                <span className="text-xs font-black text-white">
+                  {item.value.toLocaleString()}
+                </span>
               </div>
             ))}
           </div>
         </GlassCard>
-
-        {/* Weekly Activity Bar Chart */}
-        <GlassCard className="lg:col-span-3 p-6 border-white/5">
-          <h3 className="text-lg font-bold mb-6">Weekly Active Users</h3>
-          <div className="h-75 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#666', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#666', fontSize: 12}} />
-                <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} content={<CustomTooltip />} />
-                <Bar dataKey="users" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
-
       </div>
     </div>
   );

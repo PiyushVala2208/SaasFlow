@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { BarChart3, Zap, ShieldAlert, Target } from "lucide-react";
 
 const colorMap = {
@@ -10,7 +10,8 @@ const colorMap = {
 };
 
 const StatCard = ({ title, value, icon: Icon, color, subText, isAlert }) => {
-  const hasCriticalIssues = isAlert && value > 0;
+  // Logic: Agar Critical card hai aur value 0 se zyada hai, tabhi alert mode on hoga
+  const hasCriticalIssues = isAlert && parseInt(value) > 0;
 
   const iconColorClass = hasCriticalIssues
     ? "text-rose-500"
@@ -69,23 +70,41 @@ const StatCard = ({ title, value, icon: Icon, color, subText, isAlert }) => {
 };
 
 export default function StatsGrid({ projectId, refreshKey }) {
-  const [stats, setStats] = useState(null);
+  // Industry Tip: Initialize with zeros to avoid "null" layout shifts
+  const [stats, setStats] = useState({
+    workload: 0,
+    efficiency: 0,
+    critical: 0,
+    velocity: 0
+  });
   const [loading, setLoading] = useState(true);
 
+  const fetchStats = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      // cache: 'no-store' adds industry-standard data freshness
+      const res = await fetch(`/api/projects/${projectId}/stats`, { 
+        cache: 'no-store' 
+      });
+      if (!res.ok) throw new Error("Sync failure");
+      
+      const data = await res.json();
+      setStats({
+        workload: data.workload || 0,
+        efficiency: data.efficiency || 0,
+        critical: data.critical || 0,
+        velocity: data.velocity || 0
+      });
+    } catch (err) {
+      console.error("Stats Engine Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
+
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch(`/api/projects/${projectId}/stats`);
-        const data = await res.json();
-        setStats(data);
-      } catch (err) {
-        console.error("Stats Load Fail");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStats();
-  }, [projectId, refreshKey]);
+  }, [fetchStats, refreshKey]);
 
   if (loading)
     return (
@@ -100,24 +119,24 @@ export default function StatsGrid({ projectId, refreshKey }) {
     );
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <StatCard
         title="Workload"
-        value={stats?.workload || 0}
+        value={stats.workload}
         icon={BarChart3}
         color="bg-blue-500"
         subText="Active Scope"
       />
       <StatCard
         title="Efficiency"
-        value={`${stats?.efficiency || 0}%`}
+        value={`${stats.efficiency}%`}
         icon={Target}
         color="bg-emerald-500"
         subText="Progress Rate"
       />
       <StatCard
         title="Critical"
-        value={stats?.critical || 0}
+        value={stats.critical}
         icon={ShieldAlert}
         color="bg-rose-500"
         subText="System Nominal"
@@ -125,7 +144,7 @@ export default function StatsGrid({ projectId, refreshKey }) {
       />
       <StatCard
         title="Velocity"
-        value={stats?.velocity || 0}
+        value={stats.velocity}
         icon={Zap}
         color="bg-amber-500"
         subText="Recent Moves"

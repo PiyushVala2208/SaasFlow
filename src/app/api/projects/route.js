@@ -4,6 +4,14 @@ import Project from "@/models/Project";
 import Task from "@/models/Task";
 import { getAuthUser } from "@/lib/auth";
 import mongoose from "mongoose";
+import {
+  PROJECT_LIFECYCLE_EVENTS,
+  PROJECT_STATUS,
+  getLifecyclePatch,
+} from "@/lib/projectLifecycle";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function resolveMembershipRole(project, userIdStr) {
   const ownerRef = project.owner;
@@ -83,23 +91,51 @@ export async function GET() {
 
     const projectsWithStats = await Promise.all(
       projects.map(async (project) => {
-        const projectId = project._id.toString();
+        const projectOid = new mongoose.Types.ObjectId(project._id);
 
-        const totalTasks = await Task.countDocuments({ projectId });
+        const totalTasks = await Task.countDocuments({
+          projectId: projectOid,
+          orgName: user.orgName,
+        });
         const completedTasks = await Task.countDocuments({
-          projectId,
+          projectId: projectOid,
+          orgName: user.orgName,
           status: "Done",
         });
 
-        const progress =
-          totalTasks > 0
-            ? Math.round((completedTasks / totalTasks) * 100)
-            : 0;
+        const rawProgress =
+          totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-        const membershipRole = resolveMembershipRole(project, userIdStr);
+        const progress =
+          project.status === PROJECT_STATUS.ACTIVE &&
+          project.autoCompleteBlocked &&
+          rawProgress === 100
+            ? 99
+            : rawProgress;
+
+        const lifecyclePatch = getLifecyclePatch(
+          project,
+          PROJECT_LIFECYCLE_EVENTS.AUTO_PROGRESS_SYNC,
+          { progress: rawProgress },
+        );
+
+        if (Object.keys(lifecyclePatch).length > 0) {
+          await Project.updateOne(
+            { _id: project._id, orgName: user.orgName },
+            { $set: lifecyclePatch },
+            { runValidators: true },
+          );
+        }
+
+        const normalizedProject = { ...project, ...lifecyclePatch };
+
+        const membershipRole = resolveMembershipRole(
+          normalizedProject,
+          userIdStr,
+        );
 
         return {
-          ...project,
+          ...normalizedProject,
           membershipRole,
           totalTasks,
           completedTasks,
@@ -108,7 +144,11 @@ export async function GET() {
       }),
     );
 
-    return NextResponse.json(projectsWithStats);
+    return NextResponse.json(projectsWithStats, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      },
+    });
   } catch (error) {
     console.error(" GET PROJECTS ERROR:", error);
     return NextResponse.json(
@@ -137,9 +177,7 @@ export async function POST(req) {
       );
     }
 
-    const ownerOid = new mongoose.Types.ObjectId(
-      String(user.id ?? user._id),
-    );
+    const ownerOid = new mongoose.Types.ObjectId(String(user.id ?? user._id));
 
     const newProject = await Project.create({
       name,

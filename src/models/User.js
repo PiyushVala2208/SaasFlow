@@ -34,6 +34,39 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    jobTitle: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    phone: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    bio: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 400,
+    },
+    workspaceName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    workspaceUrl: {
+      type: String,
+      default: "",
+      trim: true,
+      lowercase: true,
+    },
+    businessEmail: {
+      type: String,
+      default: "",
+      trim: true,
+      lowercase: true,
+    },
   },
   {
     timestamps: true,

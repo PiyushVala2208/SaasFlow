@@ -40,7 +40,7 @@ const ProjectSchema = new mongoose.Schema(
         role: {
           type: String,
           enum: ["Owner", "Admin", "Editor", "Viewer"],
-          default: "Editor",
+          default: "Viewer", 
         },
         joinedAt: {
           type: Date,
@@ -57,6 +57,10 @@ const ProjectSchema = new mongoose.Schema(
       min: 0,
       max: 100,
     },
+    autoCompleteBlocked: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -65,8 +69,13 @@ const ProjectSchema = new mongoose.Schema(
   },
 );
 
+ProjectSchema.virtual("memberCount").get(function () {
+  return this.members ? this.members.length : 0;
+});
+
 ProjectSchema.index({ owner: 1, orgName: 1 });
 ProjectSchema.index({ "members.user": 1 });
+ProjectSchema.index({ status: 1 }); 
 
 export default mongoose.models.Project ||
   mongoose.model("Project", ProjectSchema);

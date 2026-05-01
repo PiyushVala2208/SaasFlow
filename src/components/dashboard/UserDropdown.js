@@ -7,22 +7,39 @@ import { logout } from "@/app/actions";
 
 export default function UserDropdown({ user }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [userData, setUserData] = useState({ name: "Loading...", email: "" });
+  const [userData, setUserData] = useState({
+    name: user?.name || "Loading...",
+    email: user?.email || "",
+  });
   const dropdownRef = useRef(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchUser = async () => {
       try {
-        const res = await fetch("/api/user");
-        if (res.ok) {
-          const data = await res.json();
-          setUserData(data);
+        const res = await fetch("/api/user", { cache: "no-store" });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const profile = data?.currentUser || data;
+
+        if (isMounted && profile?.name) {
+          setUserData({
+            name: profile.name,
+            email: profile.email || "",
+          });
         }
       } catch (err) {
         console.error("Failed to fetch user", err);
       }
     };
+
     fetchUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {

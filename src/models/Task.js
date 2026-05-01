@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { DEFAULT_TASK_TAG_PRESETS, normalizeTaskTags } from "@/lib/taskTags";
 
 const TaskSchema = new mongoose.Schema(
   {
@@ -36,21 +37,44 @@ const TaskSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    assignedTo: {
+    assignedTo: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-    },
+      index: true,
+    }],
+    subTasks: [
+      {
+        title: { type: String, required: true },
+        isCompleted: { type: Boolean, default: false },
+        assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      },
+    ],
+    attachments: [
+      {
+        fileName: { type: String },
+        fileUrl: { type: String },
+        fileType: { type: String },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
+    blockedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Task",
+      },
+    ],
     dueDate: {
       type: Date,
     },
-    tags: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
+    tags: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: [],
+      set: (incomingTags) => normalizeTaskTags(incomingTags),
+    },
   },
   { timestamps: true },
 );
+
+TaskSchema.statics.TAG_PRESETS = DEFAULT_TASK_TAG_PRESETS;
 
 export default mongoose.models.Task || mongoose.model("Task", TaskSchema);

@@ -1,22 +1,46 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Loader2,
-  Plus,
-  LayoutGrid,
-  ArrowLeft,
-  History,
-  X,
-  UserPlus,
-} from "lucide-react";
+import { Loader2, Plus, ArrowLeft, History, X, UserPlus } from "lucide-react";
 import Button from "@/components/ui/Button";
 import AddTaskModal from "@/components/shared/AddTaskModal";
 import KanbanColumn from "@/components/shared/KanbanColumn";
 import ActivityFeed from "@/components/projects/ActivityFeed";
 import StatsGrid from "@/components/projects/StatsGrid";
 import InviteModal from "@/components/projects/InviteModal";
-import TaskDetailModal from "@/components/tasks/TaskDetailModal"; // Already imported!
+import TaskDetailModal from "@/components/tasks/TaskDetailModal";
+import { normalizeTaskTags } from "@/lib/taskTags";
+
+const getUserId = (entity) => {
+  const userRef = entity?.user;
+  const userRefId =
+    userRef && typeof userRef === "object"
+      ? userRef._id ||
+        userRef.id ||
+        (typeof userRef.toString === "function" ? userRef.toString() : "")
+      : userRef;
+
+  const fallbackEntityRef = entity && typeof entity !== "object" ? entity : "";
+  const raw =
+    (userRefId && userRefId !== "[object Object]" ? userRefId : "") ||
+    entity?._id ||
+    entity?.id ||
+    fallbackEntityRef;
+  return raw ? String(raw) : "";
+};
+
+const normalizeUser = (entity) => {
+  const base = entity?.user ? entity.user : entity;
+  const userId = getUserId(entity);
+  if (!userId) return null;
+
+  return {
+    _id: userId,
+    name: base?.name || entity?.name || "User",
+    email: base?.email || entity?.email || "",
+    image: base?.image || entity?.image || "",
+  };
+};
 
 export default function ProjectDetailsPage() {
   const { id } = useParams();
@@ -30,20 +54,53 @@ export default function ProjectDetailsPage() {
   const [statsKey, setStatsKey] = useState(0);
 
   const [tasks, setTasks] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const assignableMembers = useMemo(() => {
+    const merged = [
+      ...(Array.isArray(project?.members) ? project.members : []),
+      ...(project?.owner ? [project.owner] : []),
+      ...(Array.isArray(allUsers) ? allUsers : []),
+    ];
+
+    const unique = new Map();
+    for (const entry of merged) {
+      const normalized = normalizeUser(entry);
+      if (normalized && !unique.has(normalized._id)) {
+        unique.set(normalized._id, normalized);
+      }
+    }
+
+    return Array.from(unique.values());
+  }, [project, allUsers]);
 
   const fetchProjectData = useCallback(async () => {
     try {
       setLoading(true);
-      const projectRes = await fetch(`/api/projects/${id}`);
+      const [projectRes, tasksRes, usersRes] = await Promise.all([
+        fetch(`/api/projects/${id}`),
+        fetch(`/api/tasks?projectId=${id}`),
+        fetch("/api/user"),
+      ]);
+
       if (projectRes.ok) {
         const projectData = await projectRes.json();
         setProject(projectData);
       }
-      const tasksRes = await fetch(`/api/tasks?projectId=${id}`);
-      const tasksData = await tasksRes.json();
-      setTasks(Array.isArray(tasksData) ? tasksData : []);
+
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        setTasks(Array.isArray(tasksData) ? tasksData : []);
+      }
+
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setAllUsers(
+          Array.isArray(usersData?.allUsers) ? usersData.allUsers : [],
+        );
+      }
     } catch (err) {
       console.error("Fetch error:", err);
     } finally {
@@ -60,51 +117,108 @@ export default function ProjectDetailsPage() {
     setStatsKey((prev) => prev + 1);
   };
 
-  const handleUpdateStatus = async (taskId, newStatus) => {
+  const handleUpdateTaskDetails = async (taskId, updatedFields) => {
+    const taskIdStr = String(taskId);
     const originalTasks = [...tasks];
+    const originalSelected = selectedTask;
+
+    const currentTask = tasks.find((t) => String(t._id) === taskIdStr);
+    if (!currentTask) return;
+
+    const normalizedUpdatedFields = { ...updatedFields };
+    if (Object.prototype.hasOwnProperty.call(normalizedUpdatedFields, "tags")) {
+      normalizedUpdatedFields.tags = normalizeTaskTags(
+        normalizedUpdatedFields.tags,
+      );
+    }
+
+    const mergedTaskData = { ...currentTask, ...normalizedUpdatedFields };
+
     setTasks((prev) =>
-      prev.map((t) => (t._id === taskId ? { ...t, status: newStatus } : t)),
+      prev.map((t) => (String(t._id) === taskIdStr ? mergedTaskData : t)),
     );
+
+    if (String(selectedTask?._id) === taskIdStr) {
+      setSelectedTask(mergedTaskData);
+    }
+
     try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
+      const payload = { ...updatedFields };
+
+      if (payload.assignedTo && Array.isArray(payload.assignedTo)) {
+        payload.assignedTo = payload.assignedTo
+          .map((member) => getUserId(member))
+          .filter(Boolean);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload, "tags")) {
+        payload.tags = normalizeTaskTags(payload.tags);
+      }
+
+      const res = await fetch(`/api/tasks/${taskIdStr}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) setTasks(originalTasks);
-      else triggerActivityRefresh();
+
+      if (res.ok) {
+        const updatedTaskFromDB = await res.json();
+
+        setTasks((prev) =>
+          prev.map((t) =>
+            String(t._id) === taskIdStr ? updatedTaskFromDB : t,
+          ),
+        );
+
+        setSelectedTask((prev) => {
+          if (!prev) return null;
+          return String(prev._id) === taskIdStr ? updatedTaskFromDB : prev;
+        });
+
+        triggerActivityRefresh();
+        return updatedTaskFromDB;
+      } else {
+        throw new Error("Sync failed");
+      }
     } catch (err) {
       setTasks(originalTasks);
+      setSelectedTask(originalSelected);
+      console.error("Update failed:", err);
     }
   };
 
-  // --- NEW: Handle Full Task Updates from Detail Modal ---
-  const handleUpdateTaskDetails = async (taskId, updatedData) => {
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedData),
-      });
-      if (res.ok) {
-        const newTask = await res.json();
-        setTasks((prev) => prev.map((t) => (t._id === taskId ? newTask : t)));
-        setSelectedTask(newTask);
-        triggerActivityRefresh();
-      }
-    } catch (err) {
-      console.error("Failed to update task:", err);
-    }
+  const handleUpdateStatus = async (taskId, statusInput) => {
+    const statusMap = {
+      "TO-DO": "To-Do",
+      "IN-PROGRESS": "In-Progress",
+      DONE: "Done",
+      "To-Do": "To-Do",
+      "In-Progress": "In-Progress",
+      Done: "Done",
+    };
+
+    const rawStatus =
+      typeof statusInput === "object" ? statusInput.status : statusInput;
+
+    const finalStatus = statusMap[rawStatus] || rawStatus;
+
+    console.log("Updating to:", finalStatus);
+    await handleUpdateTaskDetails(taskId, { status: finalStatus });
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (!confirm("Delete this task?")) return;
+    const taskIdStr = String(taskId);
     const originalTasks = [...tasks];
-    setTasks((prev) => prev.filter((t) => t._id !== taskId));
+    setTasks((prev) => prev.filter((t) => String(t._id) !== taskIdStr));
+
     try {
-      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-      if (!res.ok) setTasks(originalTasks);
-      else triggerActivityRefresh();
+      const res = await fetch(`/api/tasks/${taskIdStr}`, { method: "DELETE" });
+      if (!res.ok) {
+        setTasks(originalTasks);
+      } else {
+        if (String(selectedTask?._id) === taskIdStr) setIsDetailOpen(false);
+        triggerActivityRefresh();
+      }
     } catch (err) {
       setTasks(originalTasks);
     }
@@ -136,7 +250,7 @@ export default function ProjectDetailsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsInviteOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/5 hover:border-white/20 transition-all active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/5 transition-all"
             >
               <UserPlus size={16} className="text-neutral-400" />
               <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
@@ -146,14 +260,13 @@ export default function ProjectDetailsPage() {
 
             <button
               onClick={() => setIsActivityOpen(true)}
-              className="group relative flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-accent/40 transition-all duration-300 active:scale-95 overflow-hidden"
+              className="group relative flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-accent/40 transition-all duration-300"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-accent/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <History
                 size={18}
-                className="text-neutral-400 group-hover:text-accent transition-colors"
+                className="text-neutral-400 group-hover:text-accent"
               />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 group-hover:text-white relative z-10">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
                 Pulse
               </span>
             </button>
@@ -170,40 +283,26 @@ export default function ProjectDetailsPage() {
         <StatsGrid projectId={id} refreshKey={statsKey} />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Har Column mein humne onClick add kiya hai taaki selected task set ho sake */}
-          <KanbanColumn
-            title="To-Do"
-            tasks={tasks.filter((t) => t.status === "To-Do")}
-            color="bg-neutral-500"
-            onUpdate={handleUpdateStatus}
-            onDelete={handleDeleteTask}
-            onTaskClick={(task) => {
-              setSelectedTask(task);
-              setIsDetailOpen(true);
-            }}
-          />
-          <KanbanColumn
-            title="In-Progress"
-            tasks={tasks.filter((t) => t.status === "In-Progress")}
-            color="bg-blue-500"
-            onUpdate={handleUpdateStatus}
-            onDelete={handleDeleteTask}
-            onTaskClick={(task) => {
-              setSelectedTask(task);
-              setIsDetailOpen(true);
-            }}
-          />
-          <KanbanColumn
-            title="Completed"
-            tasks={tasks.filter((t) => t.status === "Done")}
-            color="bg-emerald-500"
-            onUpdate={handleUpdateStatus}
-            onDelete={handleDeleteTask}
-            onTaskClick={(task) => {
-              setSelectedTask(task);
-              setIsDetailOpen(true);
-            }}
-          />
+          {["To-Do", "In-Progress", "Done"].map((status) => (
+            <KanbanColumn
+              key={status}
+              title={status}
+              tasks={tasks.filter((t) => t.status === status)}
+              color={
+                status === "To-Do"
+                  ? "bg-neutral-500"
+                  : status === "In-Progress"
+                    ? "bg-blue-500"
+                    : "bg-emerald-500"
+              }
+              onUpdate={handleUpdateStatus}
+              onDelete={handleDeleteTask}
+              onTaskClick={(task) => {
+                setSelectedTask(task);
+                setIsDetailOpen(true);
+              }}
+            />
+          ))}
         </div>
       </div>
 
@@ -215,42 +314,24 @@ export default function ProjectDetailsPage() {
       />
 
       <div
-        className={`fixed inset-0 bg-black/80 z-[100] transition-opacity duration-500 ${
-          isActivityOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        }`}
+        className={`fixed inset-0 bg-black/80 z-100 transition-opacity duration-500 ${isActivityOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={() => setIsActivityOpen(false)}
       />
-
       <aside
-        className={`fixed top-0 right-0 h-full w-full max-w-[380px] bg-[#080808]/90 backdrop-blur-3xl border-l border-white/10 z-[110] transform transition-transform duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] ${
-          isActivityOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed top-0 right-0 h-full w-full max-w-[380px] bg-[#080808]/90 backdrop-blur-3xl border-l border-white/10 z-[110] transform transition-transform duration-500 ${isActivityOpen ? "translate-x-0" : "translate-x-full"}`}
       >
         <div className="h-full flex flex-col">
-          <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
-                <History size={18} className="text-accent" />
-              </div>
-              <div>
-                <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">
-                  Project Pulse
-                </h2>
-                <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest mt-0.5">
-                  Live History
-                </p>
-              </div>
-            </div>
+          <div className="flex items-center justify-between p-6 border-b border-white/5">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">
+              Project Pulse
+            </h2>
             <button
               onClick={() => setIsActivityOpen(false)}
-              className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-neutral-400 hover:text-white border border-white/5"
+              className="p-2.5 text-neutral-400 hover:text-white"
             >
               <X size={18} />
             </button>
           </div>
-
           <div className="flex-1 overflow-y-auto">
             <ActivityFeed key={activityKey} projectId={id} />
           </div>
@@ -272,7 +353,8 @@ export default function ProjectDetailsPage() {
         onClose={() => setIsDetailOpen(false)}
         task={selectedTask}
         onUpdate={handleUpdateTaskDetails}
-        members={project?.members || []}
+        onDelete={handleDeleteTask}
+        members={assignableMembers}
       />
     </div>
   );

@@ -1,11 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, LayoutGrid, Calendar, AlertCircle, Loader2 } from "lucide-react";
+import { X, LayoutGrid, Calendar, Loader2 } from "lucide-react";
 import GlassCard from "../ui/GlassCard";
 import Button from "../ui/Button";
 
-export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
+// 🔥 Added projectData prop for Edit mode
+export default function CreateProjectModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  projectData = null,
+}) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -14,28 +20,55 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
     deadline: "",
   });
 
+  // 🔄 Sync form data when editing
+  useEffect(() => {
+    if (projectData && isOpen) {
+      setFormData({
+        name: projectData.name || "",
+        description: projectData.description || "",
+        priority: projectData.priority || "Medium",
+        deadline: projectData.deadline
+          ? projectData.deadline.split("T")[0]
+          : "",
+      });
+    } else if (!projectData && isOpen) {
+      // Reset for new project
+      setFormData({
+        name: "",
+        description: "",
+        priority: "Medium",
+        deadline: "",
+      });
+    }
+  }, [projectData, isOpen]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+
+    // 🔥 Dynamic Endpoint & Method
+    const url = projectData
+      ? `/api/projects/${projectData._id}`
+      : "/api/projects";
+    const method = projectData ? "PATCH" : "POST";
+
     try {
-      const res = await fetch("/api/projects", {
-        method: "POST",
+      const res = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
       if (res.ok) {
-        onSuccess();
+        const result = await res.json();
+        onSuccess(result);
         onClose();
-        setFormData({
-          name: "",
-          description: "",
-          priority: "Medium",
-          deadline: "",
-        });
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || "Something went wrong");
       }
     } catch (error) {
-      console.error("Create Project Error:", error);
+      console.error("Project Submission Error:", error);
     } finally {
       setLoading(false);
     }
@@ -50,7 +83,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/80"
+            className="absolute inset-0 bg-black/90"
           />
 
           <motion.div
@@ -62,16 +95,16 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
             <GlassCard className="p-8 border-white/10 shadow-2xl">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-accent/10 rounded-lg text-accent">
+                  <div className="p-2 bg-violet-500/10 rounded-lg text-violet-400 border border-violet-500/20">
                     <LayoutGrid size={20} />
                   </div>
-                  <h2 className="text-xl font-bold text-white">
-                    Create New Project
+                  <h2 className="text-xl font-bold text-white tracking-tight">
+                    {projectData ? "Edit Project" : "Create New Project"}
                   </h2>
                 </div>
                 <button
                   onClick={onClose}
-                  className="text-neutral-500 hover:text-white transition-colors"
+                  className="text-neutral-500 hover:text-white transition-colors p-1 hover:bg-white/5 rounded-full"
                 >
                   <X size={20} />
                 </button>
@@ -79,12 +112,12 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2 block">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-2 block">
                     Project Name
                   </label>
                   <input
                     required
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent/50 transition-all"
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all placeholder:text-neutral-600"
                     placeholder="e.g. Q2 Marketing Campaign"
                     value={formData.name}
                     onChange={(e) =>
@@ -94,12 +127,12 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2 block">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-2 block">
                     Description
                   </label>
                   <textarea
                     rows={3}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent/50 transition-all resize-none"
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all resize-none placeholder:text-neutral-600"
                     placeholder="Briefly describe the project goals..."
                     value={formData.description}
                     onChange={(e) =>
@@ -110,42 +143,34 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2 block">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-2 block">
                       Priority
                     </label>
                     <select
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent/50 transition-all"
+                      className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500/50 transition-all appearance-none cursor-pointer"
                       value={formData.priority}
                       onChange={(e) =>
                         setFormData({ ...formData, priority: e.target.value })
                       }
                     >
-                      <option className="bg-[#0a0a0a]" value="Low">
-                        Low
-                      </option>
-                      <option className="bg-[#0a0a0a]" value="Medium">
-                        Medium
-                      </option>
-                      <option className="bg-[#0a0a0a]" value="High">
-                        High
-                      </option>
-                      <option className="bg-[#0a0a0a]" value="Urgent">
-                        Urgent
-                      </option>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Urgent">Urgent</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2 block">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-2 block">
                       Deadline
                     </label>
                     <div className="relative">
                       <Calendar
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none"
                         size={16}
                       />
                       <input
                         type="date"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-accent/50 transition-all"
+                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-violet-500/50 transition-all [color-scheme:dark]"
                         value={formData.deadline}
                         onChange={(e) =>
                           setFormData({ ...formData, deadline: e.target.value })
@@ -159,10 +184,12 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-4 rounded-xl flex items-center justify-center gap-2 text-base font-bold"
+                    className="w-full py-4 rounded-xl flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-wider transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]"
                   >
                     {loading ? (
                       <Loader2 className="animate-spin" size={20} />
+                    ) : projectData ? (
+                      "Save Changes"
                     ) : (
                       "Launch Project"
                     )}
