@@ -39,10 +39,10 @@ export default function RevenueChart() {
 
   if (loading) {
     return (
-      <div className="h-[350px] w-full mt-4 flex items-center justify-center border border-white/5 rounded-2xl bg-white/[0.02]">
+      <div className="h-75 md:h-87.5 w-full mt-4 flex items-center justify-center border border-white/5 rounded-2xl bg-white/2">
         <div className="flex flex-col items-center gap-2">
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-neutral-500 font-medium tracking-widest uppercase">
+          <p className="text-[10px] md:text-xs text-neutral-500 font-medium tracking-widest uppercase">
             Syncing Analytics...
           </p>
         </div>
@@ -51,11 +51,16 @@ export default function RevenueChart() {
   }
 
   return (
-    <div className="h-[350px] w-full mt-4">
+    <div className="h-70 sm:h-80 md:h-87.5 w-full mt-4 lg:mt-6">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={chartData}
-          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+          margin={{ 
+            top: 10, 
+            right: 5, 
+            left: -25, 
+            bottom: 0 
+          }}
         >
           <defs>
             <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -72,28 +77,34 @@ export default function RevenueChart() {
             dataKey="name"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: "#666", fontSize: 12 }}
+            tick={{ fill: "#666", fontSize: 10 }} 
+            minTickGap={20} 
             dy={10}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fill: "#666", fontSize: 12 }}
+            tick={{ fill: "#666", fontSize: 10 }}
+            hide={chartData.length === 0} 
           />
           <Tooltip
             content={<CustomTooltip />}
-            cursor={{ stroke: "#3b82f6", strokeWidth: 1, strokeDasharray: "5 5" }}
+            cursor={{ 
+              stroke: "#3b82f6", 
+              strokeWidth: 1, 
+              strokeDasharray: "5 5" 
+            }}
           />
           <Area
             type="monotone"
             dataKey="revenue"
             stroke="#3b82f6"
-            strokeWidth={3}
+            strokeWidth={window?.innerWidth < 768 ? 2 : 3} 
             fillOpacity={1}
             fill="url(#colorRev)"
-            animationDuration={2000}
+            animationDuration={1500}
             activeDot={{ 
-              r: 6, 
+              r: window?.innerWidth < 768 ? 4 : 6, 
               stroke: '#3b82f6', 
               strokeWidth: 2, 
               fill: '#000', 

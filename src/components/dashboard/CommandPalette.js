@@ -16,7 +16,6 @@ export default function CommandPalette() {
   const [search, setSearch] = useState("");
   const router = useRouter();
 
-  // Handle Shortcut (CTRL + K)
   useEffect(() => {
     const down = (e) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
@@ -37,7 +36,6 @@ export default function CommandPalette() {
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop Blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -46,7 +44,6 @@ export default function CommandPalette() {
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
           />
 
-          {/* Modal Container */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

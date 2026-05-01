@@ -112,68 +112,78 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+    <div className="space-y-6 md:space-y-8 px-4 sm:px-6 lg:px-8 py-6 md:pb-10 max-w-[1600px] mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="max-w-2xl">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight flex flex-wrap items-center gap-2">
             Welcome back, {userData.name || "User"} 👋
             {isSuperAdmin && (
-              <span className="ml-2 text-[10px] bg-white/10 border border-white/20 px-2 py-1 rounded-full uppercase tracking-widest text-neutral-400">
+              <span className="text-[10px] bg-white/5 border border-white/10 px-2.5 py-1 rounded-full uppercase tracking-widest text-neutral-400 align-middle">
                 SuperAdmin
               </span>
             )}
           </h1>
-          <p className="text-neutral-500 mt-1">
+          <p className="text-sm md:text-base text-neutral-500 mt-1">
             Real-time performance of your SaaSFlow workspace.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {statsData.map((stat, i) => (
           <GlassCard
             key={i}
-            className="p-6 border-white/5 group overflow-hidden"
+            className="p-5 md:p-6 border-white/5 group relative overflow-hidden"
           >
             <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-1">
+              <div className="space-y-1">
+                <p className="text-[10px] md:text-xs font-medium text-neutral-500 uppercase tracking-widest">
                   {stat.label}
                 </p>
-                <h3 className="text-2xl font-bold">{stat.value}</h3>
-                <div className="flex items-center gap-1 mt-2 text-xs text-neutral-400">
+                <h3 className="text-xl md:text-2xl font-bold truncate">
+                  {stat.value}
+                </h3>
+                <div className="flex items-center gap-1.5 pt-1 text-[11px] md:text-xs text-neutral-400">
                   <TrendingUp
                     size={12}
                     className={
                       stat.growth.includes("+") ? "text-emerald-500" : ""
                     }
                   />
-                  <span>{stat.growth}</span>
+                  <span className="whitespace-nowrap">{stat.growth}</span>
                 </div>
               </div>
               <div
-                className={`p-3 rounded-xl bg-white/5 border border-white/10 ${stat.color}`}
+                className={`p-2.5 md:p-3 rounded-xl bg-white/5 border border-white/10 shrink-0 ${stat.color}`}
               >
-                <stat.icon size={18} />
+                <stat.icon size={18} className="md:w-5 md:h-5" />
               </div>
             </div>
           </GlassCard>
         ))}
       </div>
 
-      <GlassCard className="p-8 border-white/5">
-        <div className="mb-6">
-          <h3 className="text-xl font-bold">
-            {isSuperAdmin ? "Global Platform Growth" : "Revenue Growth"}
-          </h3>
-          <p className="text-sm text-neutral-500">
-            Live analytics from your database.
-          </p>
-        </div>
-        <RevenueChart />
-      </GlassCard>
+      <div className="grid grid-cols-1 gap-6 md:gap-8">
+        <GlassCard className="p-5 md:p-8 border-white/5">
+          <div className="mb-6">
+            <h3 className="text-lg md:text-xl font-bold">
+              {isSuperAdmin ? "Global Platform Growth" : "Revenue Growth"}
+            </h3>
+            <p className="text-xs md:text-sm text-neutral-500">
+              Live analytics from your database.
+            </p>
+          </div>
+          <div className="w-full h-[300px] md:h-[400px]">
+            <RevenueChart />
+          </div>
+        </GlassCard>
 
-      {isSuperAdmin && <OrgTable organizations={stats.organizations} />}
+        {isSuperAdmin && (
+          <div className="w-full overflow-hidden">
+            <OrgTable organizations={stats.organizations} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
