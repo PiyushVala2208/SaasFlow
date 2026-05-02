@@ -148,11 +148,11 @@ export default function Sidebar({ userRole }) {
         </div>
       </aside>
 
-      <div className="md:hidden fixed bottom-6 left-0 right-0 z-50 px-4">
+      <div className="md:hidden fixed bottom-6 left-0 right-0 z-50 px-4 pointer-events-none">
         <motion.div
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="max-w-md mx-auto h-16 bg-black/50 backdrop-blur-xl border border-white/10 rounded-4xl flex items-center justify-around px-2 shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
+          className="max-w-md mx-auto h-16 bg-black/50 backdrop-blur-xl border border-white/10 rounded-4xl flex items-center justify-around px-2 shadow-[0_20px_50px_rgba(0,0,0,0.6)] pointer-events-auto"
         >
           <LayoutGroup id="mobile-nav">
             {filteredMenu.map((item) => {

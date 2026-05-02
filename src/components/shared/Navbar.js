@@ -40,7 +40,7 @@ export default function Navbar() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-500 ${
+      className={`fixed top-0 left-0 right-0 z-100 transition-all duration-500 ${
         scrolled ? "py-3 md:py-4" : "py-6 md:py-8"
       }`}
     >
@@ -48,7 +48,7 @@ export default function Navbar() {
         <div
           className={`glass-card flex items-center justify-between px-4 md:px-6 py-2 rounded-full transition-all duration-500 border ${
             scrolled || mobileMenuOpen
-              ? "border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl"
+              ? "border-white/10 bg-black/40 backdrop-blur-lg shadow-2xl"
               : "border-transparent bg-transparent shadow-none"
           }`}
         >
@@ -94,7 +94,7 @@ export default function Navbar() {
             })}
           </div>
 
-          <div className="flex items-center gap-2 md:gap-3 z-[110]">
+          <div className="flex items-center gap-2 md:gap-3 z-110">
             <div className="hidden sm:flex items-center gap-2">
               <Link href="/login">
                 <Button variant="ghost" className="text-sm px-4 py-2">
@@ -129,7 +129,7 @@ export default function Navbar() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/50 lg:hidden z-[80]"
+              className="fixed inset-0 bg-black/80 lg:hidden z-80"
             />
 
             <motion.div
@@ -144,8 +144,8 @@ export default function Navbar() {
                 opacity: 1,
                 y: 0,
                 scale: 1,
-                backdropFilter: "blur(16px)", 
-                WebkitBackdropFilter: "blur(16px)",
+                backdropFilter: "blur(8px)", 
+                WebkitBackdropFilter: "blur(8px)",
               }}
               exit={{
                 opacity: 0,
@@ -155,9 +155,9 @@ export default function Navbar() {
                 WebkitBackdropFilter: "blur(0px)",
               }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="absolute top-full left-4 right-4 mt-3 lg:hidden z-[90]"
+              className="absolute top-full left-4 right-4 mt-3 lg:hidden z-90"
             >
-              <div className="rounded-[2.5rem] border border-white/10 bg-black/40 p-8 shadow-2xl overflow-hidden relative">
+              <div className="rounded-[2.5rem] border border-white/10 bg-black/80 p-8 shadow-2xl overflow-hidden relative">
                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-800/50 blur-[80px] rounded-full" />
 
                 <div className="flex flex-col gap-6 relative z-10">
