@@ -209,7 +209,7 @@ export default function SettingsPage() {
           onChange={setActiveTab}
         />
 
-        <div className="flex-1">
+        <div className="flex-1 pb-22">
           <AnimatePresence mode="wait">
             {activeTab === "general" && (
               <GeneralSettingsTab

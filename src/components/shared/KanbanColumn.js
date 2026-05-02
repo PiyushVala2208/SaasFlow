@@ -29,7 +29,7 @@ export default function KanbanColumn({
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full">
+    <div className="flex flex-col gap-6 w-full pb-5">
       <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-3">
           <div
@@ -54,7 +54,7 @@ export default function KanbanColumn({
           tasks.map((task) => (
             <div
               key={task._id}
-              draggable // Isse task move ho payega
+              draggable 
               onDragStart={(e) => e.dataTransfer.setData("taskId", task._id)}
               onClick={() => onTaskClick && onTaskClick(task)}
               className="cursor-grab active:cursor-grabbing active:scale-[0.98] transition-transform"

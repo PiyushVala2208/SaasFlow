@@ -5,7 +5,6 @@ import {
   PlusCircle,
   ArrowRightCircle,
   Trash2,
-  User,
   Clock,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -45,63 +44,72 @@ export default function ActivityFeed({ projectId }) {
 
   if (loading)
     return (
-      <div className="animate-pulse text-[10px] uppercase tracking-widest text-neutral-600 p-4 font-black">
+      <div className="animate-pulse text-[10px] uppercase tracking-widest text-neutral-600 p-6 font-black">
         Syncing Pulse...
       </div>
     );
 
   return (
-    <div className="w-full h-full flex flex-col border-l border-white/5 bg-black/20 backdrop-blur-xl">
-      <div className="p-4 border-b border-white/5 flex items-center gap-2">
-        <Activity size={16} className="text-accent" />
-        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-neutral-300">
-          Project Pulse
-        </h2>
+    <div className="w-full flex flex-col border-t lg:border-t-0 lg:border-l border-white/5 bg-black/20 backdrop-blur-xl transition-all duration-300">
+      <div className="p-4 sm:p-5 border-b border-white/5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <Activity size={16} className="text-accent shrink-0" />
+          <h2 className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-neutral-300">
+            Project Pulse
+          </h2>
+        </div>
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse lg:hidden" />
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-8">
         {activities.length === 0 ? (
-          <p className="text-[10px] text-neutral-600 italic text-center py-10">
-            No recent heartbeats detected.
-          </p>
+          <div className="flex flex-col items-center justify-center py-16 opacity-40">
+            <Activity size={24} className="mb-2 text-neutral-700" />
+            <p className="text-[10px] text-neutral-600 italic tracking-tight">
+              No recent heartbeats detected.
+            </p>
+          </div>
         ) : (
           activities.map((item) => (
             <div
               key={item._id}
-              className="relative pl-6 border-l border-white/10 group"
+              className="relative pl-6 border-l border-white/10 group transition-all"
             >
-              {/* Dot Icon */}
-              <div className="absolute -left-[7px] top-0 bg-[#0a0a0a] p-0.5 rounded-full border border-white/10 group-hover:border-accent/50 transition-colors">
+              <div className="absolute -left-[7.5px] top-0.5 bg-[#0a0a0a] p-0.5 rounded-full border border-white/10 group-hover:border-accent/50 transition-all duration-300 group-hover:scale-110">
                 {getActionIcon(item.action)}
               </div>
 
-              <div className="space-y-1">
-                <p className="text-[11px] leading-relaxed text-neutral-300 font-medium">
-                  <span className="text-white font-bold">
+              <div className="space-y-1.5">
+                <p className="text-[11px] sm:text-[12px] leading-relaxed text-neutral-300 break-words">
+                  <span className="text-white font-bold hover:text-accent cursor-default transition-colors">
                     {item.userId?.name || "Member"}
                   </span>{" "}
-                  {item.action === "CREATE_TASK"
-                    ? "created"
-                    : item.action === "UPDATE_STATUS"
-                      ? "moved"
-                      : "removed"}{" "}
+                  <span className="text-neutral-400">
+                    {item.action === "CREATE_TASK"
+                      ? "created"
+                      : item.action === "UPDATE_STATUS"
+                        ? "moved"
+                        : "removed"}
+                  </span>{" "}
                   <span className="text-accent font-semibold">
                     {item.details?.taskTitle}
                   </span>
                 </p>
 
                 {item.details?.oldStatus && (
-                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-500 uppercase tracking-tighter">
-                    <span>{item.details.oldStatus}</span>
-                    <ArrowRightCircle size={10} />
-                    <span className="text-blue-400">
+                  <div className="flex flex-wrap items-center gap-2 text-[9px] font-bold text-neutral-500 uppercase tracking-tight py-0.5">
+                    <span className="px-1.5 py-0.5 bg-white/5 rounded border border-white/5">
+                      {item.details.oldStatus}
+                    </span>
+                    <ArrowRightCircle size={10} className="text-neutral-700" />
+                    <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">
                       {item.details.newStatus}
                     </span>
                   </div>
                 )}
 
-                <div className="flex items-center gap-1 text-[9px] text-neutral-600 font-medium italic">
-                  <Clock size={10} />
+                <div className="flex items-center gap-1.5 text-[9px] text-neutral-600 font-medium italic">
+                  <Clock size={10} className="shrink-0" />
                   {formatDistanceToNow(new Date(item.createdAt), {
                     addSuffix: true,
                   })}

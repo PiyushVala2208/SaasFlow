@@ -201,8 +201,6 @@ export default function ProjectDetailsPage() {
       typeof statusInput === "object" ? statusInput.status : statusInput;
 
     const finalStatus = statusMap[rawStatus] || rawStatus;
-
-    console.log("Updating to:", finalStatus);
     await handleUpdateTaskDetails(taskId, { status: finalStatus });
   };
 
@@ -232,76 +230,80 @@ export default function ProjectDetailsPage() {
     );
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
-      <div className="space-y-8 pb-10">
-        <div className="flex justify-between items-start">
-          <div className="space-y-4">
+    <div className="relative min-h-screen overflow-x-hidden px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8 pb-10 pt-4">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-3 sm:space-y-4">
             <button
               onClick={() => router.back()}
               className="flex items-center gap-2 text-blue-500 text-sm font-medium hover:text-white transition-colors"
             >
               <ArrowLeft size={16} /> Back
             </button>
-            <h1 className="text-4xl font-bold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight break-words">
               {project?.name}
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={() => setIsInviteOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/5 transition-all"
+              className="flex flex-1 items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/5 transition-all md:flex-none"
             >
               <UserPlus size={16} className="text-neutral-400" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-neutral-400">
                 Invite
               </span>
             </button>
 
             <button
               onClick={() => setIsActivityOpen(true)}
-              className="group relative flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-accent/40 transition-all duration-300"
+              className="group relative flex flex-1 items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-accent/40 transition-all duration-300 md:flex-none"
             >
               <History
                 size={18}
                 className="text-neutral-400 group-hover:text-accent"
               />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
                 Pulse
               </span>
             </button>
 
             <Button
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2"
+              className="flex flex-[2] items-center justify-center gap-2 md:flex-none text-sm px-4 py-2 sm:py-2.5"
             >
-              <Plus size={18} /> Add Task
+              <Plus size={18} />{" "}
+              <span className="whitespace-nowrap">Add Task</span>
             </Button>
           </div>
         </div>
 
-        <StatsGrid projectId={id} refreshKey={statsKey} />
+        <div className="w-full">
+          <StatsGrid projectId={id} refreshKey={statsKey} />
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="flex flex-col gap-6 md:grid md:grid-cols-3 md:gap-6 lg:gap-8 overflow-x-auto pb-4 scrollbar-hide">
           {["To-Do", "In-Progress", "Done"].map((status) => (
-            <KanbanColumn
-              key={status}
-              title={status}
-              tasks={tasks.filter((t) => t.status === status)}
-              color={
-                status === "To-Do"
-                  ? "bg-neutral-500"
-                  : status === "In-Progress"
-                    ? "bg-blue-500"
-                    : "bg-emerald-500"
-              }
-              onUpdate={handleUpdateStatus}
-              onDelete={handleDeleteTask}
-              onTaskClick={(task) => {
-                setSelectedTask(task);
-                setIsDetailOpen(true);
-              }}
-            />
+            <div key={status} className="min-w-[280px] sm:min-w-0">
+              <KanbanColumn
+                title={status}
+                tasks={tasks.filter((t) => t.status === status)}
+                color={
+                  status === "To-Do"
+                    ? "bg-neutral-500"
+                    : status === "In-Progress"
+                      ? "bg-blue-500"
+                      : "bg-emerald-500"
+                }
+                onUpdate={handleUpdateStatus}
+                onDelete={handleDeleteTask}
+                onTaskClick={(task) => {
+                  setSelectedTask(task);
+                  setIsDetailOpen(true);
+                }}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -314,22 +316,23 @@ export default function ProjectDetailsPage() {
       />
 
       <div
-        className={`fixed inset-0 bg-black/80 z-100 transition-opacity duration-500 ${isActivityOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        className={`fixed inset-0 bg-black/80 z-[100] transition-opacity duration-500 ${isActivityOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={() => setIsActivityOpen(false)}
       />
+
       <aside
-        className={`fixed top-0 right-0 h-full w-full max-w-[380px] bg-[#080808]/90 backdrop-blur-3xl border-l border-white/10 z-[110] transform transition-transform duration-500 ${isActivityOpen ? "translate-x-0" : "translate-x-full"}`}
+        className={`fixed top-0 right-0 h-full w-full sm:max-w-[380px] bg-[#080808]/95 backdrop-blur-3xl border-l border-white/10 z-[110] transform transition-transform duration-500 ${isActivityOpen ? "translate-x-0" : "translate-x-full"}`}
       >
         <div className="h-full flex flex-col">
-          <div className="flex items-center justify-between p-6 border-b border-white/5">
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/5">
+            <h2 className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-white">
               Project Pulse
             </h2>
             <button
               onClick={() => setIsActivityOpen(false)}
-              className="p-2.5 text-neutral-400 hover:text-white"
+              className="p-2 text-neutral-400 hover:text-white"
             >
-              <X size={18} />
+              <X size={20} />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">

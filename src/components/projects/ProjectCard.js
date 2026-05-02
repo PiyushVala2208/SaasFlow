@@ -32,6 +32,9 @@ export default function ProjectCard({ project, onEdit, onSuccess }) {
   const styles = getStatusStyles(project.status);
   const priority = PRIORITY_STYLES[project.priority] || PRIORITY_STYLES.Medium;
   const team = buildTeamStack(project);
+  const maxVisibleAssignees = 3;
+  const visibleTeam = team.slice(0, maxVisibleAssignees);
+  const extraAssignees = Math.max(team.length - maxVisibleAssignees, 0);
   const role = project.membershipRole || "Editor";
   const badgeClass = ROLE_BADGE[role] || ROLE_BADGE.Editor;
 
@@ -342,7 +345,7 @@ export default function ProjectCard({ project, onEdit, onSuccess }) {
             </div>
           )}
           <div className="flex items-center pl-1">
-            {team.map((entry, i) => (
+            {visibleTeam.map((entry, i) => (
               <img
                 key={entry.key}
                 src={avatarUrl(entry.user)}
@@ -351,6 +354,14 @@ export default function ProjectCard({ project, onEdit, onSuccess }) {
                 style={{ marginLeft: i === 0 ? 0 : -10 }}
               />
             ))}
+            {extraAssignees > 0 && (
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#050505] bg-white/10 text-[10px] font-semibold text-white ring-1 ring-white/10"
+                style={{ marginLeft: visibleTeam.length === 0 ? 0 : -10 }}
+              >
+                +{extraAssignees}
+              </div>
+            )}
           </div>
         </div>
       </motion.article>

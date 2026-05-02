@@ -159,7 +159,7 @@ export default function AnalyticsPage() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-8">
         <GlassCard className="lg:col-span-2 p-8 border-white/5">
           <div className="mb-8">
             <h3 className="text-sm font-black uppercase tracking-[0.3em] text-white/40">
@@ -171,7 +171,7 @@ export default function AnalyticsPage() {
           </div>
         </GlassCard>
 
-        <GlassCard className="p-8 border-white/5">
+        <GlassCard className="p-8 border-white/5 ">
           <h3 className="text-sm font-black uppercase tracking-[0.3em] text-white/40 mb-10">
             Client Segment
           </h3>
@@ -207,7 +207,7 @@ export default function AnalyticsPage() {
                   <div
                     className="w-1.5 h-1.5 rounded-full"
                     style={{ backgroundColor: COLORS[i] }}
-                  />{" "}
+                  />
                   {item.name}
                 </span>
                 <span className="text-xs font-black text-white">

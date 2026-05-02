@@ -163,7 +163,7 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 gap-6 md:gap-8 mb-22">
         <GlassCard className="p-5 md:p-8 border-white/5">
           <div className="mb-6">
             <h3 className="text-lg md:text-xl font-bold">
@@ -173,13 +173,13 @@ export default async function DashboardPage() {
               Live analytics from your database.
             </p>
           </div>
-          <div className="w-full h-[300px] md:h-[400px]">
+          <div className="w-full h-75 md:h-100 ">
             <RevenueChart />
           </div>
         </GlassCard>
 
         {isSuperAdmin && (
-          <div className="w-full overflow-hidden">
+          <div className="w-full overflow-hidden mt-5">
             <OrgTable organizations={stats.organizations} />
           </div>
         )}

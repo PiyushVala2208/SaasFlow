@@ -5,7 +5,6 @@ import { X, LayoutGrid, Calendar, Loader2 } from "lucide-react";
 import GlassCard from "../ui/GlassCard";
 import Button from "../ui/Button";
 
-// 🔥 Added projectData prop for Edit mode
 export default function CreateProjectModal({
   isOpen,
   onClose,
@@ -20,7 +19,6 @@ export default function CreateProjectModal({
     deadline: "",
   });
 
-  // 🔄 Sync form data when editing
   useEffect(() => {
     if (projectData && isOpen) {
       setFormData({
@@ -32,7 +30,6 @@ export default function CreateProjectModal({
           : "",
       });
     } else if (!projectData && isOpen) {
-      // Reset for new project
       setFormData({
         name: "",
         description: "",
@@ -46,7 +43,6 @@ export default function CreateProjectModal({
     e.preventDefault();
     setLoading(true);
 
-    // 🔥 Dynamic Endpoint & Method
     const url = projectData
       ? `/api/projects/${projectData._id}`
       : "/api/projects";
@@ -90,9 +86,9 @@ export default function CreateProjectModal({
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className="relative w-full max-w-lg"
+            className="relative w-full max-w-lg bg-black/50 backdrop-blur-lg"
           >
-            <GlassCard className="p-8 border-white/10 shadow-2xl">
+            <GlassCard className="p-8 border-white/10 shadow-2xl ">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-violet-500/10 rounded-lg text-violet-400 border border-violet-500/20">
